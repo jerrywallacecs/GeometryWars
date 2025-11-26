@@ -1,114 +1,124 @@
-# CMake SFML Project Template
+# Geometry Wars
 
-This repository template should allow for a fast and hassle-free kick start of your next SFML project using CMake.
-Thanks to [GitHub's nature of templates](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template), you can fork this repository without inheriting its Git history.
+## Player
+- The player is represented by a shape which is defined in the config file
+- The player must spawn in the center of the screen at the beginning of the game, and after it dies (collides with an enemy)
+- The player by a speed S read from the config file using WASD
+- Note: Be careful to set the speed of the player appropriately. 
+If player is moving diagonally, it should not be travling at speed S in both axes but 
+its total speed along the diagonal should be S. This can be accomplished by normalizing the velocity
+and then multiplying by S.
+- The player is confied to move only within the bounds of the window
+- The player will shoot a bullet toward the mouse pointer when the left mouse button is clicked.
+The speed, size, and lifespan of the bullets are read from the config file.
 
-The template starts out very basic, but might receive additional features over time:
+## Special Ability
+- There must be a 'special ability' which is fired by the player when the right mouse button is clicked.
+- Multiple entities (bullets etc) spawned by special weapon
+- Entities have some unique graphics associated with them
+- A unique game mechanic is introduced via a new component
+- Note: New component must be added to ComponentTuple in Entity.hpp
+- A 'cooldown timer' must be implemented for the special weapon and must be visible outside of ImGui
+- The properties of the special move are not in the config file.
 
-- Basic CMake script to build your project and link SFML on any operating system
-- Basic [GitHub Actions](https://github.com/features/actions) script for all major platforms
+## Enemy
+- Enemies will spawn in a random location on the screen every X frames, where X is defined in the configuration file
+- Enemies must not overlap the sides of the screen at the time of spawn.
+- Enemies shapes have random number of vertices, between a given minimum and maximum number, which is
+specified in the config file.
+- Enemy shape radius will be specified in the configuration file
+- Enemies will be given a random color upon spawning
+- Enemies will be given a random speed upon spawning, between a min and max value specified in the config
+- When an enemy reaches the edge of the window, it should bounce off in the opposite direction at the same speed.
+- When (large) enemies collide with a bullet or player, they are destroyed, and N small enemies spawn in its
+place, where N is the number of vertices of the original enemy. Each small enemy must have the same number
+of vertices and color of the original enemy. These small entities travel outward at angles at fixed intervals
+equal to (360 / vertices). For example, if the original enemy had 6 sides, the smaller 6 enemies will travel outward
+in intervals of (360/6) = 60 degrees.
+- Small enemies spawned should be given a 'reasonable' speed
 
-## Quick start
+## Score
+- Each time an enemy spawns, it is given a score component of N*100, where N is the number of vertices it has.
+Small enemies get double this value
+- If a player bullet kills an enemy, the game score is increased by the score component of the enemy killed.
+- The score should be displayed with the font specified by the config file in the top-left corner of the screen.
+- Small enemies should be given double the score of its large enemy
 
-### Command line
+## Drawing
+- In the render system, all entities should be given a slow rotation, which makes the game look a little nicer
+- Any special effects which do not alter game play can be added for extra points
+- Any Entity with a lifespan that is still alive should have its Color alpha channel set to a ration depending
+on how long it has left to live. its alpha value should be set to (float)25/80 * 255. The alpha should go from
+255 when it is first spawned, to 0 on the last frame it is alive.
 
-1. Install [Git](https://git-scm.com/downloads) and [CMake](https://cmake.org/download/). Use your system's package manager if available.
-2. Follow [GitHub's instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template) for how to use their project template feature to create your own project. If you don't want to use GitHub, see the section below.
-3. Clone your new GitHub repo and open the repo in your text editor of choice.
-4. Open [CMakeLists.txt](CMakeLists.txt). Rename the project and the target name of the executable to whatever name you want. Make sure to change all occurrences.
-5. If you want to add or remove any .cpp files, change the source files listed in the `add_executable` call in CMakeLists.txt to match the source files your project requires. If you plan on keeping the default main.cpp file then no changes are required.
-6. If your code uses the Audio or Network modules then add `SFML::Audio` or `SFML::Network` to the `target_link_libraries` call alongside the existing `SFML::Graphics` library that is being linked.
-7. If you use Linux, install SFML's dependencies using your system package manager. On Ubuntu and other Debian-based distributions you can use the following commands:
-   ```
-   sudo apt update
-   sudo apt install \
-       libxrandr-dev \
-       libxcursor-dev \
-       libxi-dev \
-       libudev-dev \
-       libfreetype-dev \
-       libflac-dev \
-       libvorbis-dev \
-       libgl1-mesa-dev \
-       libegl1-mesa-dev \
-       libfreetype-dev
-   ```
-8. Configure and build your project. Most popular IDEs support CMake projects with very little effort on your part.
+## GUI
+Must construct a GUI using ImGui with the following functionality:
+- GUI must diplay options to tuyrn off each system independently with the exception of rendering and GUI systems
+- For each entity in the game, the GUI must list the ID, tag, and position of that entity. must display a list of
+all entities, as well as lists of entities by their tag. You must also have some way of destroying a given
+entity by interacting with the UI element associated with it.
+- Must be able to change the enemy spawn interval through the GUI
+- Must be able to manually spawn enemies in some way through the GUI
+- Must be easily usuable and clearly present
 
-   - [VS Code](https://code.visualstudio.com) via the [CMake extension](https://code.visualstudio.com/docs/cpp/cmake-linux)
-   - [Visual Studio](https://docs.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170)
-   - [CLion](https://www.jetbrains.com/clion/features/cmake-support.html)
-   - [Qt Creator](https://doc.qt.io/qtcreator/creator-project-cmake.html)
+## Misc
+- The 'P' key should pause the game
+- The 'ESC' key should close the game
 
-   Using CMake from the command line is straightforward as well.
-   Be sure to run these commands in the root directory of the project you just created.
+## Configuration File
+The configuration file will have one line each specifying the window size, font format, player, bullet
+specification, and enemy specifications. Lines will be given in that order, with the following syntax:
 
-   ```
-   cmake -B build
-   cmake --build build
-   ```
+Window W H FL FS
+- Width, Height: int
+- Frame Limit: int
+- Fullscreen: int (1 or 0)
 
-9. Enjoy!
+Font F S R G B
+- Font File: std::string (no spaces)
+- Font Size: int
+- RGB: (int, int, int)
 
-### Visual Studio
+Player SR CR S FR FG FB OR OG OB OT V
+- Shape Radius: int
+- Collision Radius: int
+- Speed: float
+- Fill Color: (int, int, int)
+- Outline Color: (int, int, int)
+- Outline Thickness: int
+- Shape Vertices: int
 
-Using a Visual Studio workspace is the simplest way to get started on windows.
+Enemy SR CR SMIN SMAX OR OG OT VMIN VMAX L SI
+- Shape Radius: int
+- Collision Radius: int
+- Min / Max Speed: (float, float)
+- Outline Color: (int, int, int)
+- Outline Thickness: int
+- Min / Max Vertices: (int, int)
+- Small Lifespan: int
+- Spawn Interval: int
 
-1. Ensure you have the [required components installed](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio#installation).
-2. Follow [GitHub's instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template) for how to use their project template feature to create your own project.
-3. If you have already cloned this repo, you can [open the folder](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio0#ide-integration).
-4. If not, you can [clone it directly in Visual Studio](https://learn.microsoft.com/en-us/visualstudio/get-started/tutorial-open-project-from-repo).
+Bullet SR CR S FR FG FB OR OG OB OT V L
+- Shape Radius: int
+- Collision Radius: int
+- Speed: float
+- Fill Color: (int, int, int)
+- Outline Color: (int, int, int)
+- Outline Thickness: int
+- Shape Vertices: int
+- Lifespan: int
 
-Visual Studio should automatically configure the CMake project, then you can build and run as normal through Visual Studio. See the links above for more details.
-
-## Upgrading SFML
-
-SFML is found via CMake's [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html) module.
-FetchContent automatically downloads SFML from GitHub and builds it alongside your own code.
-Beyond the convenience of not having to install SFML yourself, this ensures ABI compatibility and simplifies things like specifying static versus shared libraries.
-
-Modifying what version of SFML you want is as easy as changing the `GIT_TAG` argument.
-Currently it uses SFML 3 via the `3.0.2` tag.
-
-## But I want to...
-
-Modify CMake options by adding them as configuration parameters (with a `-D` flag) or by modifying the contents of CMakeCache.txt and rebuilding.
-
-### Not use GitHub
-
-You can use this project without a GitHub account by [downloading the contents](https://github.com/SFML/cmake-sfml-project/archive/refs/heads/master.zip) of the repository as a ZIP archive and unpacking it locally.
-This approach also avoids using Git entirely if you would prefer to not do that.
-
-### Change Compilers
-
-See the variety of [`CMAKE_<LANG>_COMPILER`](https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER.html) options.
-In particular you'll want to modify `CMAKE_CXX_COMPILER` to point to the C++ compiler you wish to use.
-
-### Change Compiler Optimizations
-
-CMake abstracts away specific optimizer flags through the [`CMAKE_BUILD_TYPE`](https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html) option.
-By default this project recommends `Release` builds which enable optimizations.
-Other build types include `Debug` builds which enable debug symbols but disable optimizations.
-If you're using a multi-configuration generator (as is often the case on Windows), you can modify the [`CMAKE_CONFIGURATION_TYPES`](https://cmake.org/cmake/help/latest/variable/CMAKE_CONFIGURATION_TYPES.html#variable:CMAKE_CONFIGURATION_TYPES) option.
-
-### Change Generators
-
-While CMake will attempt to pick a suitable default generator, some systems offer a number of generators to choose from.
-Ubuntu, for example, offers Makefiles and Ninja as two potential options.
-For a list of generators, click [here](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html).
-To modify the generator you're using you must reconfigure your project providing a `-G` flag with a value corresponding to the generator you want.
-You can't simply modify an entry in the CMakeCache.txt file unlike the above options.
-Then you may rebuild your project with this new generator.
-
-## More Reading
-
-Here are some useful resources if you want to learn more about CMake:
-
-- [Official CMake Tutorial](https://cmake.org/cmake/help/latest/guide/tutorial/)
-- [How to Use CMake Without the Agonizing Pain - Part 1](https://alexreinking.com/blog/how-to-use-cmake-without-the-agonizing-pain-part-1.html)
-- [How to Use CMake Without the Agonizing Pain - Part 2](https://alexreinking.com/blog/how-to-use-cmake-without-the-agonizing-pain-part-2.html)
-- [Better CMake YouTube series by Jefferon Amstutz](https://www.youtube.com/playlist?list=PL8i3OhJb4FNV10aIZ8oF0AA46HgA2ed8g)
-
-## License
-
-The source code is dual licensed under Public Domain and MIT -- choose whichever you prefer.
+## Assignment Hints
+Recommended approach:
+0. Save the configuration fil reading until later, after Entities implemented
+1. Implement the Vec2 class, which will be used for all components
+2. At some point, implement EntityManager::removeDeadEntities()
+3. Implement basics of the Game class:
+	a. Construct a player Entitity using spawnPlayer() function
+	b. Implement basic drawing of entities using the Game::sRender() function
+	c. Construct some enemies using the spawnEnemy() function
+	d. Construct a bullet using the spawnBullet() function
+4. Implement Player Movement in Game::sUserInput and Game::sMovement
+5. Implement collisions in sCollision and entity.destroy() if it's dead
+6. Implement the rest of the game's functionality, including config file reading
+7. Implement the GUI functionality. You may however want to implement the GUI functionality earlier to help you debug your program.
