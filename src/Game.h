@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Core/Entity.h";
+#include "Core/Entity.h"
 #include "Core/EntityManager.hpp"
-#include "Vec2.hpp";
+#include "Vec2.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <imgui-SFML.h>

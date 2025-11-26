@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Core.h"
 
 using ComponentTuple = std::tuple<
@@ -18,7 +20,7 @@ class Entity
 
 public:
 	Entity() {}
-	Entity(size_t )
+	Entity(size_t id, const std::string& tag) : m_id(id), m_tag(tag) {}
 
 	template <typename T>
 	T& get()

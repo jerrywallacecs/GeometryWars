@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SFML/Graphics.hpp>
 #include <cmath>
 
@@ -11,9 +13,10 @@ public:
 	Vec2() = default;
 	Vec2(T xin, T yin) : x(xin), y(yin) {}
 
-	Vec2(const sf::Vector2<T>& vec) : x(vec.x), y(vec.y) {}
+	template <typename U>
+	Vec2(const sf::Vector2<U>& vec) : x(static_cast<T>(vec.x)), y(static_cast<T>(vec.y)) {}
 
-	Vec2(const sf::Vector2i& vec) : x(T(vec.x)), y(T(vec.y)) {}
+	Vec2(const sf::Vector2<int>& vec) : x(T(vec.x)), y(T(vec.y)) {}
 
 	// allows automatic conversion to sf::Vector2
 	// this lets us pass Vec2 into sfml functions
@@ -39,7 +42,12 @@ public:
 
 	bool operator == (const Vec2& rhs) const
 	{
-		x == rhs.x && y == rhs.y ? return true : return false;
+		if (x == rhs.x && y == rhs.y)
+		{
+			return true;
+		}
+
+		return false;
 	}
 
 	void operator += (const Vec2& rhs)
@@ -73,7 +81,7 @@ public:
 
 	float length() const
 	{
-		return std::sqrt((x * x) + (y * y))
+		return std::sqrt((x * x) + (y * y));
 	}
 
 	void normalize()

@@ -12,15 +12,17 @@ void Game::init(const std::string& path)
 	// TODO: read in config file, use structs
 
 	// set up default window params
-	m_window.create(sf::VideoMode({ 1280, 720 }), "GeometryWars");
+	m_window.create(sf::VideoMode({ 1280, 720 }), "GeometryWars", sf::Style::Default, sf::State::Fullscreen);
 	m_window.setKeyRepeatEnabled(false);
 	m_window.setFramerateLimit(60);
 
 	if (!ImGui::SFML::Init(m_window)) {}
 
+	// not a huge fan of the scaling, might change my mind
+
 	// scale the imgui ui and text size by 2
-	ImGui::GetStyle().ScaleAllSizes(2.0f);
-	ImGui::GetIO().FontGlobalScale = 2.0f;
+	//ImGui::GetStyle().ScaleAllSizes(2.0f);
+	//ImGui::GetIO().FontGlobalScale = 2.0f;
 
 	spawnPlayer();
 }
@@ -220,6 +222,11 @@ void Game::sUserInput()
 				// TODO: set player's input component UP to true
 				std::cout << "W Key!!\n";
 			}
+
+			if (keyPressed->scancode == sf::Keyboard::Scancode::Escape)
+			{
+				std::exit(0);
+			}
 		}
 
 		// this event is triggered when a key is released
@@ -238,7 +245,7 @@ void Game::sUserInput()
 		if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
 		{
 			Vec2<float> mpos(mousePressed->position);
-			if (mousePressed-> == sf::Mouse::Button::Left)
+			if (mousePressed->button == sf::Mouse::Button::Left)
 			{
 				// TODO: call spawnBullet here
 			}
