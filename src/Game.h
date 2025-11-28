@@ -10,7 +10,8 @@
 
 struct PlayerConfig
 {
-	int SR, CR, FR, FG, FB, OR, OG, OB, OT, V;
+	int SR, CR, OT, V;
+	int FR, FG, FB, OR, OG, OB;
 	float S;
 };
 
@@ -32,6 +33,7 @@ class Game
 	EntityManager m_entities; // vector of entities to maintain
 	sf::Font m_font;
 	sf::Text m_text; // score text to be drawn
+	std::string section; // for file parsing
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;

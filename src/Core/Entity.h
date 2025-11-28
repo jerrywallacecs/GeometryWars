@@ -69,4 +69,9 @@ public:
 	{
 		return m_tag;
 	}
+
+	void destroy()
+	{
+		m_alive = false;
+	}
 };

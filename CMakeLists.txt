@@ -44,8 +44,6 @@ FetchContent_MakeAvailable(Imgui-SFML)
 file(GLOB SOURCES 
     CONFIGURE_DEPENDS
     "src/*.cpp"
-    "src/Core/*.cpp"
-    "src/Systems/*.cpp"
 )
 
 file(GLOB HEADERS
@@ -56,8 +54,6 @@ file(GLOB HEADERS
     "src/Core/*.hpp"
     "src/Components/*.h"
     "src/Components/*.hpp"
-    "src/Systems/*.h"
-    "src/Systems/*.hpp"
 )
 
 # Executable
@@ -74,4 +70,15 @@ target_include_directories(GeometryWars PRIVATE
 target_link_libraries(GeometryWars PRIVATE
     SFML::Graphics
     ImGui-SFML::ImGui-SFML
+)
+
+# handling config file
+add_custom_command(
+    TARGET GeometryWars POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:GeometryWars>/config"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/config.txt"
+            "$<TARGET_FILE_DIR:GeometryWars>/config/config.txt"
+    COMMENT "Copying config.txt -> $<TARGET_FILE_DIR:GeometryWars>/config/"
 )

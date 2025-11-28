@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include <iostream>
+#include <fstream>
 
 Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
 {
@@ -10,11 +11,54 @@ Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
 void Game::init(const std::string& path)
 {
 	// TODO: read in config file, use structs
+	std::string section;
+	uint16_t windowWidth = 1280;
+	uint16_t windowHeight = 720;
+	int frameLimit = 165;
+	int fullscreen = 0;
+	std::ifstream fin(path);
 
-	// set up default window params
-	m_window.create(sf::VideoMode({ 1280, 720 }), "GeometryWars", sf::Style::Default, sf::State::Fullscreen);
-	m_window.setKeyRepeatEnabled(false);
-	m_window.setFramerateLimit(60);
+	if (!fin)
+	{
+		std::cerr << "could not open file" << '\n' << "current working dir: " << std::filesystem::current_path() << '\n';
+	}
+	
+	while (fin >> section)
+	{
+		if (section == "Window")
+		{
+			fin >> windowWidth >> windowHeight >> frameLimit >> fullscreen;
+
+			if (fullscreen == 1)
+			{
+				m_window.create(sf::VideoMode({ windowWidth, windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Fullscreen);
+			}
+
+			else
+			{
+				m_window.create(sf::VideoMode({ windowWidth, windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Windowed);
+			}
+
+			m_window.setKeyRepeatEnabled(false);
+			m_window.setFramerateLimit(frameLimit);
+		}
+
+		if (section == "Font")
+		{
+			
+		}
+
+		if (section == "Player")
+		{
+			fin >> m_playerConfig.SR >> m_playerConfig.CR >> m_playerConfig.S >> m_playerConfig.FR >> m_playerConfig.FG >> m_playerConfig.FB >> m_playerConfig.OR >> m_playerConfig.OG >> m_playerConfig.OB >> m_playerConfig.OT >> m_playerConfig.V;
+			spawnPlayer();
+		}
+
+		if (section == "Enemy")
+		{
+			spawnEnemy();
+		}
+	}
 
 	if (!ImGui::SFML::Init(m_window)) {}
 
@@ -23,8 +67,6 @@ void Game::init(const std::string& path)
 	// scale the imgui ui and text size by 2
 	//ImGui::GetStyle().ScaleAllSizes(2.0f);
 	//ImGui::GetIO().FontGlobalScale = 2.0f;
-
-	spawnPlayer();
 }
 
 std::shared_ptr<Entity> Game::player()
@@ -70,17 +112,30 @@ void Game::spawnPlayer()
 	// Give this entity a Transform so it spawns at (200, 200) with velocity (1, 1) and angle 0
 	e->add<CTransform>(Vec2<float>(200.0f, 200.0f), Vec2<float>(1.0f, 1.0f), 0.0f);
 
-	// The entity's shape will have radius 32, 8 sides, dark grey fill, and red outline
-	e->add<CShape>(32.0f, 8, sf::Color(10, 10, 10), sf::Color(255, 0, 0), 4.0f);
+	// note the static_cast here | solves issues with narrowing conversions
+	e->add<CShape>( m_playerConfig.SR, m_playerConfig.V, sf::Color({ static_cast<uint8_t>(m_playerConfig.FR), static_cast<uint8_t>(m_playerConfig.FG), static_cast<uint8_t>(m_playerConfig.FB) }), sf::Color({ static_cast<uint8_t>(m_playerConfig.OR), static_cast<uint8_t>(m_playerConfig.OG), static_cast<uint8_t>(m_playerConfig.OB) }), m_playerConfig.OT);
 
 	// Add an input component to the player so that we can use inputs
 	e->add<CInput>();
+
+	std::cout << "created player with the following attributes: " << '\n';
+	std::cout << "shape radius: " << m_playerConfig.SR << '\n';
+	std::cout << "collision radius: " << m_playerConfig.CR << '\n';
+	std::cout << "speed: " << m_playerConfig.S << '\n';
+	std::cout << "fill color: " << m_playerConfig.FR << ' ' << m_playerConfig.FG << ' ' << m_playerConfig.FB << '\n';
+	std::cout << "outline color: " << m_playerConfig.OR << ' ' << m_playerConfig.OG << ' ' << m_playerConfig.OB << '\n';
+	std::cout << "outline thickness: " << m_playerConfig.OT << '\n';
+	std::cout << "vertices: " << m_playerConfig.V << '\n';
+
 }
 
 void Game::spawnEnemy()
 {
 	// TODO: make sure the enemy is spawned properly with the m_enemyConfig variables
 	//		the enemy must be spawned completely within the bounds of the window
+	auto e = m_entities.addEntity("enemy");
+	e->add<CTransform>(Vec2<float>(600.0f, 600.0f), Vec2<float>(1.0f, 1.0f), 0.0f);
+	e->add<CShape>(16.0f, 5, sf::Color(10, 10, 10), sf::Color(0, 255, 0), 4.0f);
 
 	// record when the most recent enemy was spawned
 	m_lastEnemySpawnTime = m_currentFrame;
@@ -112,13 +167,31 @@ void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
 
 void Game::sMovement()
 {
-	// TODO: implement all entity movement in thisd function
+	// TODO: implement all entity movement in this function
 	//		Should read the m_player->cInput component to determine if the player is moving
 
-	// Sample movement speed update for the player
 	auto& transform = player()->get<CTransform>();
-	transform.pos.x += transform.velocity.x;
-	transform.pos.y += transform.velocity.y;
+
+	// TODO: use formula for two directional movement, it is currently faster than it should be | note: could use if else and check for two directions
+	if (player()->get<CInput>().up)
+	{
+		transform.pos.y -= transform.velocity.y;
+	}
+
+	if (player()->get<CInput>().down)
+	{
+		transform.pos.y += transform.velocity.y;
+	}
+
+	if (player()->get<CInput>().left)
+	{
+		transform.pos.x -= transform.velocity.x;
+	}
+
+	if (player()->get<CInput>().right)
+	{
+		transform.pos.x += transform.velocity.x;
+	}
 
 	// after we implement vec2 + operator
 }
@@ -136,6 +209,28 @@ void Game::sLifespan()
 		if entity has lifespan and its time is up
 			destroy entity
 	*/
+	for (auto e : m_entities.getEntities())
+	{
+		if (!e->has<CLifespan>())
+		{
+			continue;
+		}
+
+		if (e->get<CLifespan>().remaining > 0)
+		{
+			e->get<CLifespan>().remaining -= 1;
+		}
+
+		if (e->has<CLifespan>() && e->isAlive())
+		{
+			// TODO
+		}
+
+		if (e->get<CLifespan>().remaining <= 0)
+		{
+			// TODO
+		}
+	}
 }
 
 void Game::sCollision()
@@ -159,7 +254,7 @@ void Game::sCollision()
 
 void Game::sEnemySpawner()
 {
-	// TODO: code which implements enemy spawning should go here
+	//spawnEnemy();
 }
 
 void Game::sGUI()
@@ -173,19 +268,20 @@ void Game::sRender()
 {
 	if (!m_window.isOpen()) { return; }
 
-	// TODO: change the code below to draw ALL of the entities
-	// sample drawing of the player Entity that we have created
 	m_window.clear();
 
-	// set the position of the shape based on the entity's transform->pos
-	player()->get<CShape>().circle.setPosition(player()->get<CTransform>().pos);
-
-	// set the rotation of the shape based on the entity's transform->angle
-	player()->get<CTransform>().angle += 1.0f;
-	player()->get<CShape>().circle.setRotation(sf::degrees(player()->get<CTransform>().angle));
-
-	// draw the entity's sf::CircleShape
-	m_window.draw(player()->get<CShape>().circle);
+	for (auto& e : m_entities.getEntities())
+	{
+		if (e->isAlive())
+		{
+			// sets the position of the shape based on the entity's transform->pos
+			e->get<CShape>().circle.setPosition(e->get<CTransform>().pos);
+			// sets the rotation of the shape based on the entity's transform->angle
+			e->get<CTransform>().angle += 1.0f;
+			e->get<CShape>().circle.setRotation(sf::degrees(e->get<CTransform>().angle));
+			m_window.draw(e->get<CShape>().circle);
+		}
+	}
 
 	// draw the ui last
 	ImGui::SFML::Render(m_window);
@@ -195,11 +291,6 @@ void Game::sRender()
 
 void Game::sUserInput()
 {
-	// TODO: handle user input here
-	// note that you should only be setting the player's input component variables here
-	// you should not implement the player's movement logic here
-	// the movement system will read the variables you set in this function
-
 	while (auto event = m_window.pollEvent())
 	{
 		// pass the event to imgui to be parsed
@@ -219,8 +310,22 @@ void Game::sUserInput()
 
 			if (keyPressed->scancode == sf::Keyboard::Scancode::W)
 			{
-				// TODO: set player's input component UP to true
-				std::cout << "W Key!!\n";
+				player()->get<CInput>().up = true;
+			}
+
+			if (keyPressed->scancode == sf::Keyboard::Scancode::A)
+			{
+				player()->get<CInput>().left = true;
+			}
+
+			if (keyPressed->scancode == sf::Keyboard::Scancode::S)
+			{
+				player()->get<CInput>().down = true;
+			}
+
+			if (keyPressed->scancode == sf::Keyboard::Scancode::D)
+			{
+				player()->get<CInput>().right = true;
 			}
 
 			if (keyPressed->scancode == sf::Keyboard::Scancode::Escape)
@@ -230,15 +335,29 @@ void Game::sUserInput()
 		}
 
 		// this event is triggered when a key is released
-		if (const auto* keyPressed = event->getIf<sf::Event::KeyReleased>())
+		if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
 		{
 			// print the key that was released to the console
-			std::cout << "Key released = " << int(keyPressed->scancode) << '\n';
+			std::cout << "Key released = " << int(keyReleased->scancode) << '\n';
 
-			if (keyPressed->scancode == sf::Keyboard::Scancode::W)
+			if (keyReleased->scancode == sf::Keyboard::Scancode::W)
 			{
-				// TODO: set player's input component UP to false
-				std::cout << "W Key Released!\n";
+				player()->get<CInput>().up = false;
+			}
+
+			if (keyReleased->scancode == sf::Keyboard::Scancode::A)
+			{
+				player()->get<CInput>().left = false;
+			}
+
+			if (keyReleased->scancode == sf::Keyboard::Scancode::S)
+			{
+				player()->get<CInput>().down = false;
+			}
+
+			if (keyReleased->scancode == sf::Keyboard::Scancode::D)
+			{
+				player()->get<CInput>().right = false;
 			}
 		}
 
@@ -247,7 +366,7 @@ void Game::sUserInput()
 			Vec2<float> mpos(mousePressed->position);
 			if (mousePressed->button == sf::Mouse::Button::Left)
 			{
-				// TODO: call spawnBullet here
+				spawnBullet(player(), mpos);
 			}
 		}
 	}

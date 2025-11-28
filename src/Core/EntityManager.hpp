@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include "Entity.h";
+#include "Entity.h"
 
 using EntityVector = std::vector<std::shared_ptr<Entity>>;
 using EntityMap = std::map<std::string, EntityVector>;
@@ -15,8 +15,16 @@ class EntityManager
 
 	void removeDeadEntities(EntityVector& vec)
 	{
-		// TODO
-		// remove all entities from vec that are not alive
+		for (auto e : m_entities)
+		{
+			// if e is dead, remove it from m_entities
+			// if e is dead, remove it from m_entityMap[e->tag()]
+
+			std::erase_if(vec, [](const std::shared_ptr<Entity>& e)
+				{
+					return !(e->isAlive());
+				});
+		}
 	}
 
 public:
