@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <random>
+#include <chrono>
 
 Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
 {
@@ -11,11 +13,6 @@ Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
 void Game::init(const std::string& path)
 {
 	// TODO: read in config file, use structs
-	std::string section;
-	uint16_t windowWidth = 1280;
-	uint16_t windowHeight = 720;
-	int frameLimit = 165;
-	int fullscreen = 0;
 	std::ifstream fin(path);
 
 	if (!fin)
@@ -27,20 +24,20 @@ void Game::init(const std::string& path)
 	{
 		if (section == "Window")
 		{
-			fin >> windowWidth >> windowHeight >> frameLimit >> fullscreen;
+			fin >> m_windowSize.windowWidth >> m_windowSize.windowHeight >> m_windowSize.framerate >> m_windowSize.fullscreen;
 
-			if (fullscreen == 1)
+			if (m_windowSize.fullscreen == 1)
 			{
-				m_window.create(sf::VideoMode({ windowWidth, windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Fullscreen);
+				m_window.create(sf::VideoMode({ m_windowSize.windowWidth, m_windowSize.windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Fullscreen);
 			}
 
 			else
 			{
-				m_window.create(sf::VideoMode({ windowWidth, windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Windowed);
+				m_window.create(sf::VideoMode({ m_windowSize.windowWidth, m_windowSize.windowHeight }), "GeometryWars", sf::Style::Default, sf::State::Windowed);
 			}
 
 			m_window.setKeyRepeatEnabled(false);
-			m_window.setFramerateLimit(frameLimit);
+			m_window.setFramerateLimit(m_windowSize.framerate);
 		}
 
 		if (section == "Font")
@@ -56,7 +53,8 @@ void Game::init(const std::string& path)
 
 		if (section == "Enemy")
 		{
-			spawnEnemy();
+			fin >> m_enemyConfig.SR >> m_enemyConfig.CR >> m_enemyConfig.SMIN >> m_enemyConfig.SMAX >> m_enemyConfig.OR >> m_enemyConfig.OG >> m_enemyConfig.OB >> m_enemyConfig.OT >> m_enemyConfig.VMIN >> m_enemyConfig.VMAX >> m_enemyConfig.VMAX >> m_enemyConfig.SI;
+			sEnemySpawner();
 		}
 	}
 
@@ -117,25 +115,42 @@ void Game::spawnPlayer()
 
 	// Add an input component to the player so that we can use inputs
 	e->add<CInput>();
-
-	std::cout << "created player with the following attributes: " << '\n';
-	std::cout << "shape radius: " << m_playerConfig.SR << '\n';
-	std::cout << "collision radius: " << m_playerConfig.CR << '\n';
-	std::cout << "speed: " << m_playerConfig.S << '\n';
-	std::cout << "fill color: " << m_playerConfig.FR << ' ' << m_playerConfig.FG << ' ' << m_playerConfig.FB << '\n';
-	std::cout << "outline color: " << m_playerConfig.OR << ' ' << m_playerConfig.OG << ' ' << m_playerConfig.OB << '\n';
-	std::cout << "outline thickness: " << m_playerConfig.OT << '\n';
-	std::cout << "vertices: " << m_playerConfig.V << '\n';
-
 }
 
 void Game::spawnEnemy()
 {
+	// for random numbers we can use mersenne twister (#include <random>) and uniform int distribution
+	// as well as using std::chrono::steady_clock to seed our mersenne twister.
+
+	std::mt19937 twister{ static_cast<std::mt19937::result_type>(std::chrono::steady_clock::now().time_since_epoch().count()) };
+	// random location on screen
+	std::uniform_real_distribution width{ 0.0f, static_cast<float>(m_windowSize.windowWidth) };
+	std::uniform_real_distribution height{ 0.0f, static_cast<float>(m_windowSize.windowHeight) };
+	Vec2 positionVec2(width(twister), height(twister));
+
+	// random speed between SMIN and SMAX
+	std::uniform_real_distribution speedDistibution{ m_enemyConfig.SMIN, m_enemyConfig.SMAX };
+	Vec2 speedVec2(speedDistibution(twister), speedDistibution(twister));
+
+	// random number of vertices between VMIN and VMAX
+	std::uniform_int_distribution vertexDistibution{ m_enemyConfig.VMIN, m_enemyConfig.VMAX };
+	int vertices = vertexDistibution(twister);
+
+
+	auto e = m_entities.addEntity("enemy");
+	e->add<CTransform>(positionVec2, speedVec2, 0.0f);
+	e->add<CShape>(m_enemyConfig.SR, vertices, sf::Color(10, 10, 10), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB)}), m_enemyConfig.OT);
+
+	std::cout << "just spawned enemy entity at position: " << positionVec2.x << ' ' << positionVec2.y << '\n';
+	std::cout << "id: " << e->id() << '\n';
+	
+
 	// TODO: make sure the enemy is spawned properly with the m_enemyConfig variables
 	//		the enemy must be spawned completely within the bounds of the window
-	auto e = m_entities.addEntity("enemy");
-	e->add<CTransform>(Vec2<float>(600.0f, 600.0f), Vec2<float>(1.0f, 1.0f), 0.0f);
-	e->add<CShape>(16.0f, 5, sf::Color(10, 10, 10), sf::Color(0, 255, 0), 4.0f);
+	//auto e = m_entities.addEntity("enemy");
+	//e->add<CTransform>(Vec2<float>(600.0f, 600.0f), Vec2<float>(1.0f, 1.0f), 0.0f);
+	// temp | fix this
+	//e->add<CShape>(m_enemyConfig.SR, m_enemyConfig.VMIN, sf::Color(10, 10, 10), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB)}), m_enemyConfig.OT);
 
 	// record when the most recent enemy was spawned
 	m_lastEnemySpawnTime = m_currentFrame;
@@ -254,7 +269,21 @@ void Game::sCollision()
 
 void Game::sEnemySpawner()
 {
+	// we should use the spawning interval here and call the function every x frames (use m_enemyConfig.SI)
 	//spawnEnemy();
+
+	//if (m_lastEnemySpawnTime >= m_currentFrame + m_enemyConfig.SI)
+	//{
+		//spawnEnemy();
+	//}
+	std::cout << "current last enemy spawn time: " << m_lastEnemySpawnTime << '\n';
+	std::cout << "current frame: " << m_currentFrame << '\n';
+	std::cout << "spawn interval: " << m_enemyConfig.SI << '\n';
+
+	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI)
+	{
+		spawnEnemy();
+	}
 }
 
 void Game::sGUI()

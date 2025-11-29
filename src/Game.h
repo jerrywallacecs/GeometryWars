@@ -8,6 +8,12 @@
 #include <imgui-SFML.h>
 #include <imgui.h>
 
+struct WindowConfig
+{
+	uint16_t windowWidth, windowHeight;
+	int framerate, fullscreen;
+};
+
 struct PlayerConfig
 {
 	int SR, CR, OT, V;
@@ -34,6 +40,7 @@ class Game
 	sf::Font m_font;
 	sf::Text m_text; // score text to be drawn
 	std::string section; // for file parsing
+	WindowConfig m_windowSize;
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;
