@@ -133,11 +133,11 @@ void Game::spawnEnemy()
 	// random location on screen | note: we are using the collision radius (CR) in the config to avoid looping through all entities when the collision radius is the same for all shapes
 	std::uniform_real_distribution width{ 0.0f + m_enemyConfig.CR, static_cast<float>(m_windowConfig.windowWidth) - m_enemyConfig.CR };
 	std::uniform_real_distribution height{ 0.0f + m_enemyConfig.CR, static_cast<float>(m_windowConfig.windowHeight) - m_enemyConfig.CR };
-	Vec2 positionVec2(width(twister), height(twister));
+	Vec2 position(width(twister), height(twister));
 
 	// random speed between SMIN and SMAX
 	std::uniform_real_distribution speedDistibution{ m_enemyConfig.SMIN, m_enemyConfig.SMAX };
-	Vec2 speedVec2(speedDistibution(twister), speedDistibution(twister));
+	Vec2 speed(speedDistibution(twister), speedDistibution(twister));
 
 	// random number of vertices between VMIN and VMAX
 	std::uniform_int_distribution vertexDistibution{ m_enemyConfig.VMIN, m_enemyConfig.VMAX };
@@ -145,11 +145,11 @@ void Game::spawnEnemy()
 
 
 	auto e = m_entities.addEntity("enemy");
-	e->add<CTransform>(positionVec2, speedVec2, 0.0f);
+	e->add<CTransform>(position, speed, 0.0f);
 	e->add<CShape>(m_enemyConfig.SR, vertices, sf::Color(10, 10, 10), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB)}), m_enemyConfig.OT);
 	e->add<CCollision>(m_enemyConfig.CR);
 
-	std::cout << "just spawned enemy entity at position: " << positionVec2.x << ' ' << positionVec2.y << '\n';
+	std::cout << "just spawned enemy entity at position: " << position.x << ' ' << position.y << '\n';
 	std::cout << "id: " << e->id() << '\n';
 	
 
@@ -168,6 +168,37 @@ void Game::spawnEnemy()
 void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
 {
 	// TODO: spawn small enemies at the location of the input enemy e
+	int count = e->get<CShape>().circle.getPointCount();
+
+	for (int i = 1; i <= count; i++)
+	{
+		float angleStep = 360.0f / count;
+		float angle = i * angleStep;
+
+		auto smallEnemy = m_entities.addEntity("smallEnemy");
+
+		// note std::cos and std::sin take in radians, not degrees
+		float radians = angle * (3.1415926f / 180.0f);
+		float speed = e->get<CTransform>().velocity.length();
+		Vec2 velocity((speed * std::cos(radians) / 2), (speed * std::sin(radians) / 2));
+
+		smallEnemy->add<CTransform>(
+			e->get<CTransform>().pos,
+			velocity,
+			angle
+		);
+
+		smallEnemy->add<CShape>(
+			m_enemyConfig.SR / 2,
+			count,
+			e->get<CShape>().circle.getFillColor(),
+			e->get<CShape>().circle.getOutlineColor(),
+			e->get<CShape>().circle.getOutlineThickness()
+		);
+
+		// not sure how i feel about this.
+		smallEnemy->add<CCollision>(e->get<CCollision>().radius / 2);
+	}
 
 	// when we create the smaller enemy, we have to read the values from the original enemy
 	// - spawn a number of small enemies equal to the vertices of the original enemy
@@ -178,30 +209,21 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
 // spawns a bullet from a given entity to a target location
 void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2<float>& target)
 {
-	// TODO: implement the spawning of a bullet which travels toward target
-	//		- bullet speed is given as a scalar speed
-	//		- you must set the velocity by using formula in notes
 	auto& transform = entity->get<CTransform>();
 	auto bullet = m_entities.addEntity("bullet");
 
 	// calculate difference vector
 	Vec2 differenceVector = target - entity->get<CTransform>().pos;
-	// normalize difference vector'
+	// normalize difference vector
 	differenceVector.normalize();
 	// scale the normalized vector with speed scalar
 	Vec2 speedScalar(m_bulletConfig.S, m_bulletConfig.S);
 	Vec2 velocityVector = speedScalar * differenceVector;
 
-	// pos, vel, angle | angle currently set to 0.
 	bullet->add<CTransform>(Vec2(transform.pos.x, transform.pos.y), velocityVector, 0.0f);
-	// radius
 	bullet->add<CCollision>(m_bulletConfig.CR);
-	// lifespan
 	bullet->add<CLifespan>(m_bulletConfig.L);
-	// radius, points, fill, outline, thickness
 	bullet->add<CShape>(m_bulletConfig.SR, m_bulletConfig.V, sf::Color(m_bulletConfig.FR, m_bulletConfig.FG, m_bulletConfig.FB), sf::Color(m_bulletConfig.OR, m_bulletConfig.OG, m_bulletConfig.OB), m_bulletConfig.OT);
-
-
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
@@ -242,6 +264,12 @@ void Game::sMovement()
 		enemyTransform.pos += enemyTransform.velocity;
 	}
 
+	for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+	{
+		smallEnemy->get<CTransform>().pos += smallEnemy->get<CTransform>().velocity;
+	}
+
+	// bullet animation
 	for (auto& bullet : m_entities.getEntities("bullet"))
 	{
 		bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
@@ -341,16 +369,30 @@ void Game::sCollision()
 		}
 	}
 
-	for (auto b : m_entities.getEntities("bullet"))
+	for (auto& bullet : m_entities.getEntities("bullet"))
 	{
-		for (auto e : m_entities.getEntities("enemy"))
+		for (auto& enemy : m_entities.getEntities("enemy"))
 		{
-			// do collision logic
+			// some maths
+			Vec2 differenceVector(bullet->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
+			float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
+			if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+			{
+				// collision occured - destroy enemy and spawn smallEnemy
+				spawnSmallEnemies(enemy);
+				enemy->destroy();
+				bullet->destroy();
+			}
 		}
 
-		for (auto e : m_entities.getEntities("smallEnemy"))
+		for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
 		{
-			// do collision logic
+			Vec2 differenceVector(bullet->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
+			float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
+			if ((differenceVector.x * differenceVector.x) + (differenceVector.y + differenceVector.y) < squaredRadiusSum)
+			{
+				smallEnemy->destroy();
+			}
 		}
 	}
 }
