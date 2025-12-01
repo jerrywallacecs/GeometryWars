@@ -40,7 +40,7 @@ class Game
 	sf::Font m_font;
 	sf::Text m_text; // score text to be drawn
 	std::string section; // for file parsing
-	WindowConfig m_windowSize;
+	WindowConfig m_windowConfig;
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;

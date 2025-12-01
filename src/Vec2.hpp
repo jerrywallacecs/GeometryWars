@@ -86,7 +86,7 @@ public:
 
 	void normalize()
 	{
-		x = 1;
-		y = 1;
+		x /= length();
+		y /= length();
 	}
 };
