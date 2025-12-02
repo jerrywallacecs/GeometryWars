@@ -12,7 +12,6 @@ Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
 
 void Game::init(const std::string& path)
 {
-	// TODO: read in config file, use structs
 	std::ifstream fin(path);
 
 	if (!fin)
@@ -42,7 +41,14 @@ void Game::init(const std::string& path)
 
 		if (section == "Font")
 		{
-			
+			fin >> m_fontConfig.filepath >> m_fontConfig.fontSize >> m_fontConfig.r >> m_fontConfig.g >> m_fontConfig.b;
+			if (!m_font.openFromFile(m_fontConfig.filepath))
+			{
+				std::cerr << "Could not load font!\n";
+				std::exit(-1);
+			}
+			m_text.setCharacterSize(m_fontConfig.fontSize);
+			m_text.setFillColor(sf::Color(m_fontConfig.r, m_fontConfig.g, m_fontConfig.b));
 		}
 
 		if (section == "Player")
@@ -53,7 +59,7 @@ void Game::init(const std::string& path)
 
 		if (section == "Enemy")
 		{
-			fin >> m_enemyConfig.SR >> m_enemyConfig.CR >> m_enemyConfig.SMIN >> m_enemyConfig.SMAX >> m_enemyConfig.OR >> m_enemyConfig.OG >> m_enemyConfig.OB >> m_enemyConfig.OT >> m_enemyConfig.VMIN >> m_enemyConfig.VMAX >> m_enemyConfig.VMAX >> m_enemyConfig.SI;
+			fin >> m_enemyConfig.SR >> m_enemyConfig.CR >> m_enemyConfig.SMIN >> m_enemyConfig.SMAX >> m_enemyConfig.OR >> m_enemyConfig.OG >> m_enemyConfig.OB >> m_enemyConfig.OT >> m_enemyConfig.VMIN >> m_enemyConfig.VMAX >> m_enemyConfig.L >> m_enemyConfig.SI;
 		}
 
 		if (section == "Bullet")
@@ -63,12 +69,6 @@ void Game::init(const std::string& path)
 	}
 
 	if (!ImGui::SFML::Init(m_window)) {}
-
-	// not a huge fan of the scaling, might change my mind
-
-	// scale the imgui ui and text size by 2
-	//ImGui::GetStyle().ScaleAllSizes(2.0f);
-	//ImGui::GetIO().FontGlobalScale = 2.0f;
 }
 
 std::shared_ptr<Entity> Game::player()
@@ -93,6 +93,7 @@ void Game::run()
 		sEnemySpawner();
 		sMovement();
 		sCollision();
+		sLifespan();
 		sGUI();
 		sRender();
 
@@ -105,22 +106,12 @@ void Game::run()
 // respawn the player in the middle of the screen
 void Game::spawnPlayer()
 {
-	// TODO: Finish adding all properties of the player with the correct values from the config file
-
-	// We create every entity by calling EntityManager.addEntitity(tag)
-	// This returns a std::shared_ptr<Entity>, so we use 'auto' to save typing
 	auto e = m_entities.addEntity("player");
-
-	// Give this entity a Transform so it spawns at (200, 200) with velocity (1, 1) and angle 0
 	e->add<CTransform>(Vec2<float>(m_windowConfig.windowWidth / 2, m_windowConfig.windowHeight / 2), Vec2<float>(m_playerConfig.S, m_playerConfig.S), 0.0f);
 
 	// note the static_cast here | solves issues with narrowing conversions
 	e->add<CShape>( m_playerConfig.SR, m_playerConfig.V, sf::Color({ static_cast<uint8_t>(m_playerConfig.FR), static_cast<uint8_t>(m_playerConfig.FG), static_cast<uint8_t>(m_playerConfig.FB) }), sf::Color({ static_cast<uint8_t>(m_playerConfig.OR), static_cast<uint8_t>(m_playerConfig.OG), static_cast<uint8_t>(m_playerConfig.OB) }), m_playerConfig.OT);
-
-	// giving the player a collision component
 	e->add<CCollision>(m_playerConfig.CR);
-
-	// Add an input component to the player so that we can use inputs
 	e->add<CInput>();
 }
 
@@ -128,6 +119,8 @@ void Game::spawnEnemy()
 {
 	// for random numbers we can use mersenne twister (#include <random>) and uniform int distribution
 	// as well as using std::chrono::steady_clock to seed our mersenne twister.
+
+	// curious if the psuedo-random values are connected due to using only one twister... RESEARCH
 
 	std::mt19937 twister{ static_cast<std::mt19937::result_type>(std::chrono::steady_clock::now().time_since_epoch().count()) };
 	// random location on screen | note: we are using the collision radius (CR) in the config to avoid looping through all entities when the collision radius is the same for all shapes
@@ -143,22 +136,18 @@ void Game::spawnEnemy()
 	std::uniform_int_distribution vertexDistibution{ m_enemyConfig.VMIN, m_enemyConfig.VMAX };
 	int vertices = vertexDistibution(twister);
 
+	// random value for R
+	std::uniform_int_distribution colorDistribution{ 0, 255 };
+	uint8_t r = colorDistribution(twister);
+	uint8_t g = colorDistribution(twister);
+	uint8_t b = colorDistribution(twister);
+
 
 	auto e = m_entities.addEntity("enemy");
 	e->add<CTransform>(position, speed, 0.0f);
-	e->add<CShape>(m_enemyConfig.SR, vertices, sf::Color(10, 10, 10), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB)}), m_enemyConfig.OT);
+	e->add<CShape>(m_enemyConfig.SR, vertices, sf::Color(r, g, b, 255), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB), 255}), m_enemyConfig.OT);
 	e->add<CCollision>(m_enemyConfig.CR);
-
-	std::cout << "just spawned enemy entity at position: " << position.x << ' ' << position.y << '\n';
-	std::cout << "id: " << e->id() << '\n';
-	
-
-	// TODO: make sure the enemy is spawned properly with the m_enemyConfig variables
-	//		the enemy must be spawned completely within the bounds of the window
-	//auto e = m_entities.addEntity("enemy");
-	//e->add<CTransform>(Vec2<float>(600.0f, 600.0f), Vec2<float>(1.0f, 1.0f), 0.0f);
-	// temp | fix this
-	//e->add<CShape>(m_enemyConfig.SR, m_enemyConfig.VMIN, sf::Color(10, 10, 10), sf::Color({static_cast<uint8_t>(m_enemyConfig.OR), static_cast<uint8_t>(m_enemyConfig.OG), static_cast<uint8_t>(m_enemyConfig.OB)}), m_enemyConfig.OT);
+	e->add<CScore>(vertices * 100);
 
 	// record when the most recent enemy was spawned
 	m_lastEnemySpawnTime = m_currentFrame;
@@ -198,12 +187,11 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
 
 		// not sure how i feel about this.
 		smallEnemy->add<CCollision>(e->get<CCollision>().radius / 2);
-	}
 
-	// when we create the smaller enemy, we have to read the values from the original enemy
-	// - spawn a number of small enemies equal to the vertices of the original enemy
-	// - set each small enemy to the same color as the original, half the size
-	// - small enemies are worth double points of the original enemy
+		smallEnemy->add<CLifespan>(m_enemyConfig.L);
+
+		smallEnemy->add<CScore>(e->get<CScore>().score * 2);
+	}
 }
 
 // spawns a bullet from a given entity to a target location
@@ -229,169 +217,213 @@ void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2<float>& target
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
 {
 	// TODO: implement special weapon
+	// idea: railgun... could charge up and fire a "heat seeking bullet"
 }
 
 void Game::sMovement()
 {
-	auto& playerTransform = player()->get<CTransform>();
-
-	// TODO: use formula for two directional movement, it is currently faster than it should be | note: could use if else and check for two directions
-	if (player()->get<CInput>().up)
+	if (m_movement)
 	{
-		playerTransform.pos.y -= playerTransform.velocity.y;
-	}
+		auto& playerTransform = player()->get<CTransform>();
 
-	if (player()->get<CInput>().down)
-	{
-		playerTransform.pos.y += playerTransform.velocity.y;
-	}
+		// TODO: use formula for two directional movement, it is currently faster than it should be | note: could use if else and check for two directions
+		if (player()->get<CInput>().up)
+		{
+			playerTransform.pos.y -= playerTransform.velocity.y;
+		}
 
-	if (player()->get<CInput>().left)
-	{
-		playerTransform.pos.x -= playerTransform.velocity.x;
-	}
+		if (player()->get<CInput>().down)
+		{
+			playerTransform.pos.y += playerTransform.velocity.y;
+		}
 
-	if (player()->get<CInput>().right)
-	{
-		playerTransform.pos.x += playerTransform.velocity.x;
-	}
+		if (player()->get<CInput>().left)
+		{
+			playerTransform.pos.x -= playerTransform.velocity.x;
+		}
 
-	// enemy animation logic
-	for (auto& enemy : m_entities.getEntities("enemy"))
-	{
-		auto& enemyTransform = enemy->get<CTransform>();
+		if (player()->get<CInput>().right)
+		{
+			playerTransform.pos.x += playerTransform.velocity.x;
+		}
 
-		enemyTransform.pos += enemyTransform.velocity;
-	}
+		// enemy animation
+		for (auto& enemy : m_entities.getEntities("enemy"))
+		{
+			auto& enemyTransform = enemy->get<CTransform>();
 
-	for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
-	{
-		smallEnemy->get<CTransform>().pos += smallEnemy->get<CTransform>().velocity;
-	}
+			enemyTransform.pos += enemyTransform.velocity;
+		}
 
-	// bullet animation
-	for (auto& bullet : m_entities.getEntities("bullet"))
-	{
-		bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
+		for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+		{
+			smallEnemy->get<CTransform>().pos += smallEnemy->get<CTransform>().velocity;
+		}
+
+		// bullet animation
+		for (auto& bullet : m_entities.getEntities("bullet"))
+		{
+			bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
+		}
 	}
 }
 
 void Game::sLifespan()
 {
-	// TODO: implement all lifespan functionality
-
-	/* 
-	for all entities
-		if entity has no lifespan component, skip it
-		if entity has > 0 remaining lifespan, subtract 1
-		if entity has lifespan and is alive
-			scale alpha channel properly
-		if entity has lifespan and its time is up
-			destroy entity
-	*/
-	for (auto& e : m_entities.getEntities())
+	if (m_lifespan)
 	{
-		if (!e->has<CLifespan>())
+		for (auto& e : m_entities.getEntities())
 		{
-			continue;
-		}
+			if (!e->has<CLifespan>())
+			{
+				continue;
+			}
 
-		if (e->get<CLifespan>().remaining > 0)
-		{
-			e->get<CLifespan>().remaining -= 1;
-		}
+			if (e->get<CLifespan>().remaining > 0)
+			{
+				e->get<CLifespan>().remaining -= 1;
+			}
 
-		if (e->has<CLifespan>() && e->isAlive())
-		{
-			// TODO
-		}
+			if (e->has<CLifespan>() && e->isAlive())
+			{
+				sf::Color fillColor = e->get<CShape>().circle.getFillColor();
+				sf::Color outlineColor = e->get<CShape>().circle.getOutlineColor();
+				float ratio = (float)e->get<CLifespan>().remaining / e->get<CLifespan>().lifespan;
+				fillColor.a = 255 * ratio;
+				outlineColor.a = 255 * ratio;
+				e->get<CShape>().circle.setFillColor(fillColor);
+				e->get<CShape>().circle.setOutlineColor(outlineColor);
+			}
 
-		if (e->get<CLifespan>().remaining <= 0)
-		{
-			// TODO
+			if (e->get<CLifespan>().remaining <= 0)
+			{
+				e->destroy();
+			}
 		}
 	}
 }
 
 void Game::sCollision()
 {
-	// TODO: implement all proper collisions between entities
-	// be sure to use the collision radius, NOT the shape radius
-
-	// checking player collision with window
-	for (auto& player : m_entities.getEntities("player"))
+	if (m_collision)
 	{
-		if (player->get<CTransform>().pos.x < 0 + player->get<CCollision>().radius)
+		// checking player collision with window
+		for (auto& player : m_entities.getEntities("player"))
 		{
-			player->get<CTransform>().pos.x = 0 + player->get<CCollision>().radius;
-		}
-
-		if (player->get<CTransform>().pos.x > m_windowConfig.windowWidth - player->get<CCollision>().radius)
-		{
-			player->get<CTransform>().pos.x = m_windowConfig.windowWidth - player->get<CCollision>().radius;
-		}
-
-		if (player->get<CTransform>().pos.y < 0 + player->get<CCollision>().radius)
-		{
-			player->get<CTransform>().pos.y = 0 + player->get<CCollision>().radius;
-		}
-
-		if (player->get<CTransform>().pos.y > m_windowConfig.windowHeight - player->get<CCollision>().radius)
-		{
-			player->get<CTransform>().pos.y = m_windowConfig.windowHeight - player->get<CCollision>().radius;
-		}
-
-		// checking player collision with enemy
-		for (auto& enemy : m_entities.getEntities("enemy"))
-		{
-			Vec2 differenceVector(player->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, player->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
-			float squaredRadiusSum = (player->get<CCollision>().radius * player->get<CCollision>().radius) + ((player->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
-			if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+			if (player->get<CTransform>().pos.x < 0 + player->get<CCollision>().radius)
 			{
-				// collision occured - put player in middle of screen & destroy enemy
-				player->get<CTransform>().pos = { static_cast<float>(m_windowConfig.windowWidth / 2), static_cast<float>(m_windowConfig.windowHeight / 2) };
-				enemy->destroy();
+				player->get<CTransform>().pos.x = 0 + player->get<CCollision>().radius;
 			}
-		}
-	}
 
-	// checking enemy collision with window
-	for (auto& enemy : m_entities.getEntities("enemy"))
-	{
-		if (enemy->get<CTransform>().pos.x < 0 + enemy->get<CCollision>().radius || enemy->get<CTransform>().pos.x > m_windowConfig.windowWidth - enemy->get<CCollision>().radius)
-		{
-			enemy->get<CTransform>().velocity.x *= -1;
-		}
-
-		if (enemy->get<CTransform>().pos.y < 0 + enemy->get<CCollision>().radius || enemy->get<CTransform>().pos.y > m_windowConfig.windowHeight - enemy->get<CCollision>().radius)
-		{
-			enemy->get<CTransform>().velocity.y *= -1;
-		}
-	}
-
-	for (auto& bullet : m_entities.getEntities("bullet"))
-	{
-		for (auto& enemy : m_entities.getEntities("enemy"))
-		{
-			// some maths
-			Vec2 differenceVector(bullet->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
-			float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
-			if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+			if (player->get<CTransform>().pos.x > m_windowConfig.windowWidth - player->get<CCollision>().radius)
 			{
-				// collision occured - destroy enemy and spawn smallEnemy
-				spawnSmallEnemies(enemy);
-				enemy->destroy();
-				bullet->destroy();
+				player->get<CTransform>().pos.x = m_windowConfig.windowWidth - player->get<CCollision>().radius;
+			}
+
+			if (player->get<CTransform>().pos.y < 0 + player->get<CCollision>().radius)
+			{
+				player->get<CTransform>().pos.y = 0 + player->get<CCollision>().radius;
+			}
+
+			if (player->get<CTransform>().pos.y > m_windowConfig.windowHeight - player->get<CCollision>().radius)
+			{
+				player->get<CTransform>().pos.y = m_windowConfig.windowHeight - player->get<CCollision>().radius;
+			}
+
+			// checking player collision with enemy
+			for (auto& enemy : m_entities.getEntities("enemy"))
+			{
+				Vec2 differenceVector(player->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, player->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (player->get<CCollision>().radius * player->get<CCollision>().radius) + ((player->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured - put player in middle of screen & destroy enemy
+					player->get<CTransform>().pos = { static_cast<float>(m_windowConfig.windowWidth / 2), static_cast<float>(m_windowConfig.windowHeight / 2) };
+					enemy->destroy();
+				}
+			}
+
+			// checking player collision with small enemy
+			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			{
+				Vec2 differenceVector(player->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, player->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (player->get<CCollision>().radius * player->get<CCollision>().radius) + ((player->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured - put player in middle of screen & destroy small enemy
+					player->get<CTransform>().pos = { static_cast<float>(m_windowConfig.windowWidth / 2), static_cast<float>(m_windowConfig.windowHeight / 2) };
+					smallEnemy->destroy();
+				}
 			}
 		}
 
+		// checking enemy collision with window
+		for (auto& enemy : m_entities.getEntities("enemy"))
+		{
+			if (enemy->get<CTransform>().pos.x < 0 + enemy->get<CCollision>().radius || enemy->get<CTransform>().pos.x > m_windowConfig.windowWidth - enemy->get<CCollision>().radius)
+			{
+				enemy->get<CTransform>().velocity.x *= -1;
+			}
+
+			if (enemy->get<CTransform>().pos.y < 0 + enemy->get<CCollision>().radius || enemy->get<CTransform>().pos.y > m_windowConfig.windowHeight - enemy->get<CCollision>().radius)
+			{
+				enemy->get<CTransform>().velocity.y *= -1;
+			}
+
+			// if, for some reason, the entitity is out of the window, we should destroy it
+			if (enemy->get<CTransform>().pos.x < 0 || enemy->get<CTransform>().pos.x > m_windowConfig.windowWidth)
+			{
+				enemy->destroy();
+			}
+
+			if (enemy->get<CTransform>().pos.y < 0 || enemy->get<CTransform>().pos.y > m_windowConfig.windowHeight)
+			{
+				enemy->destroy();
+			}
+		}
+
+		// checking small enemy collision with window
 		for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
 		{
-			Vec2 differenceVector(bullet->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
-			float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
-			if ((differenceVector.x * differenceVector.x) + (differenceVector.y + differenceVector.y) < squaredRadiusSum)
+			if (smallEnemy->get<CTransform>().pos.x < 0 + smallEnemy->get<CCollision>().radius || smallEnemy->get<CTransform>().pos.x > m_windowConfig.windowWidth - smallEnemy->get<CCollision>().radius)
 			{
-				smallEnemy->destroy();
+				smallEnemy->get<CTransform>().velocity.x *= -1;
+			}
+
+			if (smallEnemy->get<CTransform>().pos.y < 0 + smallEnemy->get<CCollision>().radius || smallEnemy->get<CTransform>().pos.y > m_windowConfig.windowHeight - smallEnemy->get<CCollision>().radius)
+			{
+				smallEnemy->get<CTransform>().velocity.y *= -1;
+			}
+		}
+
+		for (auto& bullet : m_entities.getEntities("bullet"))
+		{
+			// checking bullet collision with enemy
+			for (auto& enemy : m_entities.getEntities("enemy"))
+			{
+				Vec2 differenceVector(bullet->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					spawnSmallEnemies(enemy);
+					m_score += enemy->get<CScore>().score;
+					enemy->destroy();
+					bullet->destroy();
+				}
+			}
+
+			// checking bullet collision with small enemy
+			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			{
+				Vec2 differenceVector(bullet->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y + differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					m_score += smallEnemy->get<CScore>().score;
+					smallEnemy->destroy();
+				}
 			}
 		}
 	}
@@ -399,16 +431,44 @@ void Game::sCollision()
 
 void Game::sEnemySpawner()
 {
-	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI)
+	if (m_enemySpawner)
 	{
-		spawnEnemy();
+		if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SI)
+		{
+			spawnEnemy();
+		}
 	}
 }
 
 void Game::sGUI()
 {
 	ImGui::Begin("GeometryWars");
-	ImGui::Text("Stuff Goes Here");
+	if (ImGui::BeginTabBar("MainTabs"))
+	{
+		if (ImGui::BeginTabItem("Systems"))
+		{
+			ImGui::Text("Enable/Disable Systems");
+			ImGui::Checkbox("User Input", &m_userInput);
+			ImGui::Checkbox("Enemy Spawner", &m_enemySpawner);
+			ImGui::Checkbox("Movement", &m_movement);
+			ImGui::Checkbox("Collision", &m_collision);
+			ImGui::Checkbox("Lifespan", &m_lifespan);
+			ImGui::EndTabItem();
+		}
+
+		if (ImGui::BeginTabItem("Entities"))
+		{
+			ImGui::Text("Current Entities:");
+			ImGui::EndTabItem();
+		}
+
+		if (ImGui::BeginTabItem("Settings"))
+		{
+			ImGui::Text("Enemy Settings:");
+			ImGui::EndTabItem();
+		}
+	}
+	ImGui::EndTabBar();
 	ImGui::End();
 }
 
@@ -431,6 +491,9 @@ void Game::sRender()
 		}
 	}
 
+	m_text.setString("Current Score: " + std::to_string(m_score));
+	m_window.draw(m_text);
+
 	// draw the ui last
 	ImGui::SFML::Render(m_window);
 
@@ -439,82 +502,85 @@ void Game::sRender()
 
 void Game::sUserInput()
 {
-	while (auto event = m_window.pollEvent())
+	if (m_userInput)
 	{
-		// pass the event to imgui to be parsed
-		ImGui::SFML::ProcessEvent(m_window, *event);
-
-		// this event triggers when the window is closed
-		if (event->is<sf::Event::Closed>())
+		while (auto event = m_window.pollEvent())
 		{
-			std::exit(0);
-		}
+			// pass the event to imgui to be parsed
+			ImGui::SFML::ProcessEvent(m_window, *event);
 
-		// this event is triggered when a key is pressed
-		if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
-		{
-			// print the key that was pressed to the console
-			std::cout << "Key pressed = " << int(keyPressed->scancode) << '\n';
-
-			if (keyPressed->scancode == sf::Keyboard::Scancode::W)
-			{
-				player()->get<CInput>().up = true;
-			}
-
-			if (keyPressed->scancode == sf::Keyboard::Scancode::A)
-			{
-				player()->get<CInput>().left = true;
-			}
-
-			if (keyPressed->scancode == sf::Keyboard::Scancode::S)
-			{
-				player()->get<CInput>().down = true;
-			}
-
-			if (keyPressed->scancode == sf::Keyboard::Scancode::D)
-			{
-				player()->get<CInput>().right = true;
-			}
-
-			if (keyPressed->scancode == sf::Keyboard::Scancode::Escape)
+			// this event triggers when the window is closed
+			if (event->is<sf::Event::Closed>())
 			{
 				std::exit(0);
 			}
-		}
 
-		// this event is triggered when a key is released
-		if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
-		{
-			// print the key that was released to the console
-			std::cout << "Key released = " << int(keyReleased->scancode) << '\n';
-
-			if (keyReleased->scancode == sf::Keyboard::Scancode::W)
+			// this event is triggered when a key is pressed
+			if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
 			{
-				player()->get<CInput>().up = false;
+				// print the key that was pressed to the console
+				std::cout << "Key pressed = " << int(keyPressed->scancode) << '\n';
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::W)
+				{
+					player()->get<CInput>().up = true;
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::A)
+				{
+					player()->get<CInput>().left = true;
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::S)
+				{
+					player()->get<CInput>().down = true;
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::D)
+				{
+					player()->get<CInput>().right = true;
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::Escape)
+				{
+					std::exit(0);
+				}
 			}
 
-			if (keyReleased->scancode == sf::Keyboard::Scancode::A)
+			// this event is triggered when a key is released
+			if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
 			{
-				player()->get<CInput>().left = false;
+				// print the key that was released to the console
+				std::cout << "Key released = " << int(keyReleased->scancode) << '\n';
+
+				if (keyReleased->scancode == sf::Keyboard::Scancode::W)
+				{
+					player()->get<CInput>().up = false;
+				}
+
+				if (keyReleased->scancode == sf::Keyboard::Scancode::A)
+				{
+					player()->get<CInput>().left = false;
+				}
+
+				if (keyReleased->scancode == sf::Keyboard::Scancode::S)
+				{
+					player()->get<CInput>().down = false;
+				}
+
+				if (keyReleased->scancode == sf::Keyboard::Scancode::D)
+				{
+					player()->get<CInput>().right = false;
+				}
 			}
 
-			if (keyReleased->scancode == sf::Keyboard::Scancode::S)
+			if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
 			{
-				player()->get<CInput>().down = false;
-			}
-
-			if (keyReleased->scancode == sf::Keyboard::Scancode::D)
-			{
-				player()->get<CInput>().right = false;
-			}
-		}
-
-		if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
-		{
-			Vec2<float> mpos(mousePressed->position);
-			if (mousePressed->button == sf::Mouse::Button::Left)
-			{
-				spawnBullet(player(), mpos);
+				Vec2<float> mpos(mousePressed->position);
+				if (mousePressed->button == sf::Mouse::Button::Left)
+				{
+					spawnBullet(player(), mpos);
+				}
 			}
 		}
 	}

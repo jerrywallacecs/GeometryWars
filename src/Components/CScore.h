@@ -2,7 +2,7 @@
 
 #include "Component.h"
 
-class CScore
+class CScore : public Component
 {
 public:
 	int score = 0;

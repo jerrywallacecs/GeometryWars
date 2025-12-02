@@ -8,7 +8,7 @@
 If player is moving diagonally, it should not be travling at speed S in both axes but 
 its total speed along the diagonal should be S. This can be accomplished by normalizing the velocity
 and then multiplying by S.
-- The player is confied to move only within the bounds of the window
+- The player is confined to move only within the bounds of the window
 - The player will shoot a bullet toward the mouse pointer when the left mouse button is clicked.
 The speed, size, and lifespan of the bullets are read from the config file.
 

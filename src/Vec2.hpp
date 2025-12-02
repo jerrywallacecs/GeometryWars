@@ -86,7 +86,12 @@ public:
 
 	void normalize()
 	{
-		x /= length();
-		y /= length();
+		float len = length();
+		if (len != 0.0f)
+		{
+			float inverse = 1.0f / len;
+			x *= inverse;
+			y *= inverse;
+		}
 	}
 };

@@ -14,6 +14,15 @@ struct WindowConfig
 	int framerate, fullscreen;
 };
 
+struct FontConfig
+{
+	std::string filepath;
+	int fontSize;
+	int r;
+	int g;
+	int b;
+};
+
 struct PlayerConfig
 {
 	int SR, CR, OT, V;
@@ -41,6 +50,7 @@ class Game
 	sf::Text m_text; // score text to be drawn
 	std::string section; // for file parsing
 	WindowConfig m_windowConfig;
+	FontConfig m_fontConfig;
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;
@@ -49,6 +59,12 @@ class Game
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
 	bool m_paused = false; // whether we update game logic
+
+	bool m_movement = true;
+	bool m_userInput = true;
+	bool m_lifespan = true;
+	bool m_enemySpawner = true;
+	bool m_collision = true;
 
 	void init(const std::string& config); // initialize the GameState with a config file
 	void setPaused(bool paused); // pause the game
