@@ -8,7 +8,8 @@ using ComponentTuple = std::tuple<
 	CLifespan,
 	CScore,
 	CShape,
-	CTransform
+	CTransform,
+	CQuill
 >;
 
 class Entity

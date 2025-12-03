@@ -201,7 +201,7 @@ void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2<float>& target
 	auto bullet = m_entities.addEntity("bullet");
 
 	// calculate difference vector
-	Vec2 differenceVector = target - entity->get<CTransform>().pos;
+	Vec2 differenceVector = target - transform.pos;
 	// normalize difference vector
 	differenceVector.normalize();
 	// scale the normalized vector with speed scalar
@@ -214,10 +214,55 @@ void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2<float>& target
 	bullet->add<CShape>(m_bulletConfig.SR, m_bulletConfig.V, sf::Color(m_bulletConfig.FR, m_bulletConfig.FG, m_bulletConfig.FB), sf::Color(m_bulletConfig.OR, m_bulletConfig.OG, m_bulletConfig.OB), m_bulletConfig.OT);
 }
 
-void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
+// spawns small bolts when a shape explodes
+void Game::spawnSmallQuills(std::shared_ptr<Entity> e)
+{
+	int count = e->get<CShape>().circle.getPointCount();
+	for (int i = 1; i <= count; i++)
+	{
+		float angleStep = 360.0f / count;
+		float angle = i * angleStep;
+
+		auto smallQuill = m_entities.addEntity("small quill");
+
+		float radians = angle * (3.1415926f / 180.0f);
+		float speed = e->get<CTransform>().velocity.length();
+		Vec2<float> velocity((speed * std::cos(radians) / 2), (speed * std::sin(radians) / 2));
+
+		smallQuill->add<CTransform>(
+			e->get<CTransform>().pos,
+			velocity,
+			angle
+		);
+		smallQuill->add<CCollision>(m_bulletConfig.CR);
+		smallQuill->add<CQuill>(30.f, 4.f, sf::Color(100, 200, 255));
+		smallQuill->add<CLifespan>(m_bulletConfig.L);
+	}
+}
+
+void Game::spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& target)
 {
 	// TODO: implement special weapon
 	// idea: railgun... could charge up and fire a "heat seeking bullet"
+
+	// current able to fire every 10 seconds
+	if (m_currentFrame - m_lastQuillFired >= 600)
+	{
+		auto& transform = entity->get<CTransform>();
+		auto quill = m_entities.addEntity("quill");
+
+		Vec2<float> direction = target - transform.pos;
+		direction.normalize();
+		float speed = 20.f;
+
+		Vec2<float> velocity(direction.x * speed, direction.y * speed);
+
+		quill->add<CTransform>(transform.pos, velocity, 0);
+		quill->add<CCollision>(m_bulletConfig.CR);
+		quill->add<CLifespan>(m_bulletConfig.L);
+		quill->add<CQuill>(60.f, 8.f, sf::Color(100, 200, 255));
+		m_lastQuillFired = m_currentFrame;
+	}
 }
 
 void Game::sMovement()
@@ -264,6 +309,17 @@ void Game::sMovement()
 		for (auto& bullet : m_entities.getEntities("bullet"))
 		{
 			bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
+		}
+
+		// quill animation
+		for (auto& quill : m_entities.getEntities("quill"))
+		{
+			quill->get<CTransform>().pos += quill->get<CTransform>().velocity;
+		}
+
+		for (auto& quill : m_entities.getEntities("small quill"))
+		{
+			quill->get<CTransform>().pos += quill->get<CTransform>().velocity;
 		}
 	}
 }
@@ -426,6 +482,66 @@ void Game::sCollision()
 				}
 			}
 		}
+
+		for (auto& quill : m_entities.getEntities("quill"))
+		{
+			for (auto& enemy : m_entities.getEntities("enemy"))
+			{
+				Vec2 differenceVector(quill->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					spawnSmallEnemies(enemy);
+					spawnSmallQuills(enemy);
+					m_score += enemy->get<CScore>().score;
+					enemy->destroy();
+					quill->destroy();
+				}
+			}
+
+			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			{
+				Vec2 differenceVector(quill->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y + differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					m_score += smallEnemy->get<CScore>().score;
+					smallEnemy->destroy();
+				}
+			}
+		}
+
+		for (auto& quill : m_entities.getEntities("small quill"))
+		{
+			for (auto& enemy : m_entities.getEntities("enemy"))
+			{
+				Vec2 differenceVector(quill->get<CTransform>().pos.x - enemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - enemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * enemy->get<CCollision>().radius) * 2) + (enemy->get<CCollision>().radius * enemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y * differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					spawnSmallEnemies(enemy);
+					spawnSmallQuills(enemy);
+					m_score += enemy->get<CScore>().score;
+					enemy->destroy();
+					quill->destroy();
+				}
+			}
+
+			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			{
+				Vec2 differenceVector(quill->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
+				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
+				if ((differenceVector.x * differenceVector.x) + (differenceVector.y + differenceVector.y) < squaredRadiusSum)
+				{
+					// collision occured
+					m_score += smallEnemy->get<CScore>().score;
+					smallEnemy->destroy();
+				}
+			}
+		}
 	}
 }
 
@@ -527,14 +643,32 @@ void Game::sRender()
 
 	for (auto& e : m_entities.getEntities())
 	{
+		if (!e->isAlive()) continue;
+
+		auto& transform = e->get<CTransform>();
+
 		if (e->isAlive())
 		{
-			// sets the position of the shape based on the entity's transform->pos
-			e->get<CShape>().circle.setPosition(e->get<CTransform>().pos);
-			// sets the rotation of the shape based on the entity's transform->angle
-			e->get<CTransform>().angle += 1.0f;
-			e->get<CShape>().circle.setRotation(sf::degrees(e->get<CTransform>().angle));
-			m_window.draw(e->get<CShape>().circle);
+			// render quills
+			if (e->has<CQuill>())
+			{
+				// compute angle from velocity
+				float angle = std::atan2(e->get<CTransform>().velocity.y, e->get<CTransform>().velocity.x) * 180.f / 3.14159f;
+
+				e->get<CQuill>().quill.setPosition(e->get<CTransform>().pos);
+				e->get<CQuill>().quill.setRotation(sf::degrees(angle));
+				m_window.draw(e->get<CQuill>().quill);
+			}
+			// render everything else
+			else
+			{
+				// sets the position of the shape based on the entity's transform->pos
+				e->get<CShape>().circle.setPosition(e->get<CTransform>().pos);
+				// sets the rotation of the shape based on the entity's transform->angle
+				e->get<CTransform>().angle += 1.0f;
+				e->get<CShape>().circle.setRotation(sf::degrees(e->get<CTransform>().angle));
+				m_window.draw(e->get<CShape>().circle);
+			}
 		}
 	}
 
@@ -627,6 +761,11 @@ void Game::sUserInput()
 				if (mousePressed->button == sf::Mouse::Button::Left)
 				{
 					spawnBullet(player(), mpos);
+				}
+
+				if (mousePressed->button == sf::Mouse::Button::Right)
+				{
+					spawnQuill(player(), mpos);
 				}
 			}
 		}

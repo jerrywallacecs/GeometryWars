@@ -58,6 +58,7 @@ class Game
 	int m_score = 0;
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
+	int m_lastQuillFired = 0;
 	bool m_paused = false; // whether we update game logic
 
 	bool m_movement = true;
@@ -82,7 +83,8 @@ class Game
 	void spawnEnemy();
 	void spawnSmallEnemies(std::shared_ptr<Entity> entity);
 	void spawnBullet(std::shared_ptr<Entity> entity, const Vec2<float>& mousePos);
-	void spawnSpecialWeapon(std::shared_ptr<Entity> entity);
+	void spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& mousePos);
+	void spawnSmallQuills(std::shared_ptr<Entity> entity);
 
 	std::shared_ptr<Entity> player();
 
