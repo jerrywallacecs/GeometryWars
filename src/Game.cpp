@@ -69,6 +69,11 @@ void Game::init(const std::string& path)
 	}
 
 	if (!ImGui::SFML::Init(m_window)) {}
+
+	// initializing the checkered background
+	m_tileColor1 = { 28, 28, 28 };
+	m_tileColor2 = { 0, 0, 0 };
+	m_backgroundTileSize = 20;
 }
 
 std::shared_ptr<Entity> Game::player()
@@ -94,7 +99,10 @@ void Game::run()
 		sMovement();
 		sCollision();
 		sLifespan();
-		sGUI();
+		if (m_devMode)
+		{
+			sGUI();
+		}
 		sRender();
 
 		// increment the current frame
@@ -164,7 +172,7 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e)
 		float angleStep = 360.0f / count;
 		float angle = i * angleStep;
 
-		auto smallEnemy = m_entities.addEntity("smallEnemy");
+		auto smallEnemy = m_entities.addEntity("small enemy");
 
 		// note std::cos and std::sin take in radians, not degrees
 		float radians = angle * (3.1415926f / 180.0f);
@@ -235,7 +243,7 @@ void Game::spawnSmallQuills(std::shared_ptr<Entity> e)
 			angle
 		);
 		smallQuill->add<CCollision>(m_bulletConfig.CR);
-		smallQuill->add<CQuill>(30.f, 4.f, sf::Color(100, 200, 255));
+		smallQuill->add<CQuill>(30.f, 4.f, sf::Color(255, 255, 255));
 		smallQuill->add<CLifespan>(m_bulletConfig.L);
 	}
 }
@@ -260,7 +268,7 @@ void Game::spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& target)
 		quill->add<CTransform>(transform.pos, velocity, 0);
 		quill->add<CCollision>(m_bulletConfig.CR);
 		quill->add<CLifespan>(m_bulletConfig.L);
-		quill->add<CQuill>(60.f, 8.f, sf::Color(100, 200, 255));
+		quill->add<CQuill>(60.f, 8.f, sf::Color(255, 255, 255));
 		m_lastQuillFired = m_currentFrame;
 	}
 }
@@ -300,7 +308,7 @@ void Game::sMovement()
 			enemyTransform.pos += enemyTransform.velocity;
 		}
 
-		for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+		for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 		{
 			smallEnemy->get<CTransform>().pos += smallEnemy->get<CTransform>().velocity;
 		}
@@ -400,7 +408,7 @@ void Game::sCollision()
 			}
 
 			// checking player collision with small enemy
-			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 			{
 				Vec2 differenceVector(player->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, player->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
 				float squaredRadiusSum = (player->get<CCollision>().radius * player->get<CCollision>().radius) + ((player->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
@@ -439,7 +447,7 @@ void Game::sCollision()
 		}
 
 		// checking small enemy collision with window
-		for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+		for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 		{
 			if (smallEnemy->get<CTransform>().pos.x < 0 + smallEnemy->get<CCollision>().radius || smallEnemy->get<CTransform>().pos.x > m_windowConfig.windowWidth - smallEnemy->get<CCollision>().radius)
 			{
@@ -470,7 +478,7 @@ void Game::sCollision()
 			}
 
 			// checking bullet collision with small enemy
-			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 			{
 				Vec2 differenceVector(bullet->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, bullet->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
 				float squaredRadiusSum = (bullet->get<CCollision>().radius * bullet->get<CCollision>().radius) + ((bullet->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
@@ -500,7 +508,7 @@ void Game::sCollision()
 				}
 			}
 
-			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 			{
 				Vec2 differenceVector(quill->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
 				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
@@ -530,7 +538,7 @@ void Game::sCollision()
 				}
 			}
 
-			for (auto& smallEnemy : m_entities.getEntities("smallEnemy"))
+			for (auto& smallEnemy : m_entities.getEntities("small enemy"))
 			{
 				Vec2 differenceVector(quill->get<CTransform>().pos.x - smallEnemy->get<CTransform>().pos.x, quill->get<CTransform>().pos.y - smallEnemy->get<CTransform>().pos.y);
 				float squaredRadiusSum = (quill->get<CCollision>().radius * quill->get<CCollision>().radius) + ((quill->get<CCollision>().radius * smallEnemy->get<CCollision>().radius) * 2) + (smallEnemy->get<CCollision>().radius * smallEnemy->get<CCollision>().radius);
@@ -613,7 +621,7 @@ void Game::sGUI()
 
 		if (ImGui::BeginTabItem("Settings"))
 		{
-			ImGui::Text("Enemy Settings:");
+			ImGui::Text("Enemy Settings");
 			ImGui::Separator();
 			if (ImGui::Button("Spawn Enemy"))
 			{
@@ -640,6 +648,20 @@ void Game::sRender()
 	if (!m_window.isOpen()) { return; }
 
 	m_window.clear();
+
+	// draw the tile background
+	for (int i = 0; i < m_window.getSize().x / m_backgroundTileSize; ++i)
+	{
+		for (int x = 0; x < m_window.getSize().y / m_backgroundTileSize; ++x)
+		{
+			Vec2<float> tileSize(m_backgroundTileSize, m_backgroundTileSize);
+			Vec2<float> tilePos(i, x);
+			sf::RectangleShape tile(tileSize);
+			tile.setPosition(tilePos * tileSize);
+			tile.setFillColor((i + x) % 2 == 0 ? m_tileColor1 : m_tileColor2);
+			m_window.draw(tile);
+		}
+	}
 
 	for (auto& e : m_entities.getEntities())
 	{
@@ -725,6 +747,12 @@ void Game::sUserInput()
 				if (keyPressed->scancode == sf::Keyboard::Scancode::Escape)
 				{
 					std::exit(0);
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::G)
+				{
+					// toggle gui
+					m_devMode = !m_devMode;
 				}
 			}
 

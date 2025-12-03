@@ -55,11 +55,15 @@ class Game
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;
 	sf::Clock m_deltaClock;
+	sf::Color m_tileColor1;
+	sf::Color m_tileColor2;
+	int m_backgroundTileSize;
 	int m_score = 0;
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
 	int m_lastQuillFired = 0;
 	bool m_paused = false; // whether we update game logic
+	bool m_devMode = false; // whether the gui is visible
 
 	bool m_movement = true;
 	bool m_userInput = true;
