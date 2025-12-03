@@ -86,6 +86,7 @@ public:
 
 	void normalize()
 	{
+		// note: decided to use inverse here because 1) i think its cool 2) i believe it is faster
 		float len = length();
 		if (len != 0.0f)
 		{

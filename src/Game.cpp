@@ -458,13 +458,60 @@ void Game::sGUI()
 
 		if (ImGui::BeginTabItem("Entities"))
 		{
-			ImGui::Text("Current Entities:");
+			for (auto& [tag, vec] : m_entities.getEntityMap())
+			{
+				// dropdown header
+				if (ImGui::TreeNode(tag.c_str()))
+				{
+					ImGui::Text("Delete | Entity Tag | ID");
+					ImGui::Separator();
+
+					for (auto& e : vec)
+					{
+						// unique id for button
+						std::string buttonID = "DELETE##" + std::to_string(e->id());
+
+						if (ImGui::Button(buttonID.c_str()))
+						{
+							if (e->tag() != "player")
+							{
+								e->destroy();
+							}
+							else
+							{
+								e->get<CTransform>().pos = { static_cast<float>(m_windowConfig.windowWidth / 2), static_cast<float>(m_windowConfig.windowHeight / 2) };
+							}
+						}
+
+						ImGui::SameLine();
+						ImGui::Text(e->tag().c_str());
+						ImGui::SameLine();
+						ImGui::Text(std::to_string(e->id()).c_str());
+					}
+
+					ImGui::TreePop();
+				}
+			}
 			ImGui::EndTabItem();
 		}
 
 		if (ImGui::BeginTabItem("Settings"))
 		{
 			ImGui::Text("Enemy Settings:");
+			ImGui::Separator();
+			if (ImGui::Button("Spawn Enemy"))
+			{
+				spawnEnemy();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Clear Enemies"))
+			{
+				for (auto& e : m_entities.getEntities("enemy"))
+				{
+					e->destroy();
+				}
+			}
+			ImGui::InputInt("Spawn Interval", &m_enemyConfig.SI);
 			ImGui::EndTabItem();
 		}
 	}

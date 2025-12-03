@@ -15,14 +15,19 @@ class EntityManager
 
 	void removeDeadEntities(EntityVector& vec)
 	{
-		for (auto e : m_entities)
-		{
-			// if e is dead, remove it from m_entities
-			// if e is dead, remove it from m_entityMap[e->tag()]
+		// quick note: std::erase_if iterates internally
+		// remove from master entity vector
+		std::erase_if(m_entities, [](const std::shared_ptr<Entity>& e)
+			{
+				return !e->isAlive();
+			});
 
+		// remove from the map buckets
+		for (auto& [tag, vec] : m_entityMap)
+		{
 			std::erase_if(vec, [](const std::shared_ptr<Entity>& e)
 				{
-					return !(e->isAlive());
+					return !e->isAlive();
 				});
 		}
 	}
