@@ -292,22 +292,24 @@ void Game::sMovement()
 		auto& playerTransform = player()->get<CTransform>();
 
 		// TODO: use formula for two directional movement, it is currently faster than it should be | note: could use if else and check for two directions
-		if (player()->get<CInput>().up)
+		
+		// checking each direction - FIX DIAGONAL MOVEMENT
+		if (player()->get<CInput>().up && !player()->get<CInput>().right && !player()->get<CInput>().left)
 		{
 			playerTransform.pos.y -= playerTransform.velocity.y;
 		}
 
-		if (player()->get<CInput>().down)
+		if (player()->get<CInput>().down && !player()->get<CInput>().right && !player()->get<CInput>().left)
 		{
 			playerTransform.pos.y += playerTransform.velocity.y;
 		}
 
-		if (player()->get<CInput>().left)
+		if (player()->get<CInput>().left && !player()->get<CInput>().down && !player()->get<CInput>().up)
 		{
 			playerTransform.pos.x -= playerTransform.velocity.x;
 		}
 
-		if (player()->get<CInput>().right)
+		if (player()->get<CInput>().right && !player()->get<CInput>().down && !player()->get<CInput>().up)
 		{
 			playerTransform.pos.x += playerTransform.velocity.x;
 		}
