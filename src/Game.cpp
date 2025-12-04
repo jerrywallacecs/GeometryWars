@@ -94,20 +94,22 @@ void Game::run()
 		// required update call to imgui
 		ImGui::SFML::Update(m_window, m_deltaClock.restart());
 
-		sUserInput();
-		sEnemySpawner();
-		sMovement();
-		sCollision();
-		sLifespan();
 		if (m_devMode)
 		{
 			sGUI();
 		}
 		sRender();
+		sUserInput();
 
-		// increment the current frame
-		// may need to be moved when pause implemented
-		m_currentFrame++;
+		if (!m_paused)
+		{
+			sEnemySpawner();
+			sMovement();
+			sCollision();
+			sLifespan();
+
+			m_currentFrame++;
+		}
 	}
 }
 
@@ -621,6 +623,7 @@ void Game::sGUI()
 
 		if (ImGui::BeginTabItem("Settings"))
 		{
+			ImGui::SliderInt("tile size", &m_backgroundTileSize, 4, 120);
 			ImGui::Text("Enemy Settings");
 			ImGui::Separator();
 			if (ImGui::Button("Spawn Enemy"))
@@ -650,6 +653,10 @@ void Game::sRender()
 	m_window.clear();
 
 	// draw the tile background
+	// note: this is expensive! Should use a different solution, perhaps initialize and cache in an object to reduce calls down to equal the framerate.
+	// Tile size of 20 results in ~138k draw calls at 1280x720 at 60fps
+	// Tile size of 4 results in ~3.5 million draw calls at 1280x720 at 60fps
+	// This can be seen using the GUI
 	for (int i = 0; i < m_window.getSize().x / m_backgroundTileSize; ++i)
 	{
 		for (int x = 0; x < m_window.getSize().y / m_backgroundTileSize; ++x)
@@ -684,11 +691,14 @@ void Game::sRender()
 			// render everything else
 			else
 			{
-				// sets the position of the shape based on the entity's transform->pos
-				e->get<CShape>().circle.setPosition(e->get<CTransform>().pos);
-				// sets the rotation of the shape based on the entity's transform->angle
-				e->get<CTransform>().angle += 1.0f;
-				e->get<CShape>().circle.setRotation(sf::degrees(e->get<CTransform>().angle));
+				if (!m_paused)
+				{
+					// sets the position of the shape based on the entity's transform->pos
+					e->get<CShape>().circle.setPosition(e->get<CTransform>().pos);
+					// sets the rotation of the shape based on the entity's transform->angle
+					e->get<CTransform>().angle += 1.0f;
+					e->get<CShape>().circle.setRotation(sf::degrees(e->get<CTransform>().angle));
+				}
 				m_window.draw(e->get<CShape>().circle);
 			}
 		}
@@ -753,6 +763,12 @@ void Game::sUserInput()
 				{
 					// toggle gui
 					m_devMode = !m_devMode;
+				}
+
+				if (keyPressed->scancode == sf::Keyboard::Scancode::P)
+				{
+					// toggle pause
+					m_paused = !m_paused;
 				}
 			}
 
