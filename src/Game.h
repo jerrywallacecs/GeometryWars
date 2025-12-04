@@ -17,10 +17,10 @@ struct WindowConfig
 struct FontConfig
 {
 	std::string filepath;
-	int fontSize;
-	int r;
-	int g;
-	int b;
+	int fontSize = 0;
+	int r = 0;
+	int g = 0;
+	int b = 0;
 };
 
 struct PlayerConfig
@@ -44,35 +44,58 @@ struct BulletConfig
 
 class Game
 {
-	sf::RenderWindow m_window; // window we will draw to
-	EntityManager m_entities; // vector of entities to maintain
+	// basic stuff
+	sf::RenderWindow m_window;
 	sf::Font m_font;
-	sf::Text m_text; // score text to be drawn
-	std::string section; // for file parsing
+	std::string section; // file parsing
+
+	// config structs
 	WindowConfig m_windowConfig;
 	FontConfig m_fontConfig;
 	PlayerConfig m_playerConfig;
 	EnemyConfig m_enemyConfig;
 	BulletConfig m_bulletConfig;
+
+	// vector of entities to maintain
+	EntityManager m_entities;
+
+	// unused?
 	sf::Clock m_deltaClock;
+	
+	// background
 	sf::Color m_tileColor1;
 	sf::Color m_tileColor2;
 	int m_backgroundTileSize;
+
+	// scoring
+	sf::Text m_scoreText;
 	int m_score = 0;
+
+	// counters
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
 	int m_lastQuillFired = 0;
-	bool m_paused = false; // whether we update game logic
-	bool m_devMode = false; // whether the gui is visible
 
+	// special ability
+	sf::Text m_specialAbilityText;
+	int m_cooldownFrames = 600;
+	int m_cooldownRemaining = 0;
+
+	// whether we update game logic
+	bool m_paused = false;
+
+	// whether debug gui is visible
+	bool m_devMode = false;
+
+	// systems toggle
 	bool m_movement = true;
 	bool m_userInput = true;
 	bool m_lifespan = true;
 	bool m_enemySpawner = true;
 	bool m_collision = true;
 
-	void init(const std::string& config); // initialize the GameState with a config file
-	void setPaused(bool paused); // pause the game
+	// init gamestate with config file
+	void init(const std::string& config);
 	
 	// SYSTEMS
 	void sMovement();
@@ -83,6 +106,7 @@ class Game
 	void sEnemySpawner();
 	void sCollision();
 
+	// helper functions
 	void spawnPlayer();
 	void spawnEnemy();
 	void spawnSmallEnemies(std::shared_ptr<Entity> entity);
@@ -90,6 +114,7 @@ class Game
 	void spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& mousePos);
 	void spawnSmallQuills(std::shared_ptr<Entity> entity);
 
+	// ptr to player
 	std::shared_ptr<Entity> player();
 
 public:

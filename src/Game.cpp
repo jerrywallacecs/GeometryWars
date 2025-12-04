@@ -5,7 +5,7 @@
 #include <random>
 #include <chrono>
 
-Game::Game(const std::string& config) : m_text(m_font, "Default", 24)
+Game::Game(const std::string& config) : m_scoreText(m_font, "Default", 24), m_specialAbilityText(m_font, "Default", 24)
 {
 	init(config);
 }
@@ -47,8 +47,11 @@ void Game::init(const std::string& path)
 				std::cerr << "Could not load font!\n";
 				std::exit(-1);
 			}
-			m_text.setCharacterSize(m_fontConfig.fontSize);
-			m_text.setFillColor(sf::Color(m_fontConfig.r, m_fontConfig.g, m_fontConfig.b));
+			m_scoreText.setCharacterSize(m_fontConfig.fontSize);
+			m_scoreText.setFillColor(sf::Color(m_fontConfig.r, m_fontConfig.g, m_fontConfig.b));
+			m_specialAbilityText.setCharacterSize(m_fontConfig.fontSize);
+			m_specialAbilityText.setFillColor(sf::Color(m_fontConfig.r, m_fontConfig.g, m_fontConfig.b));
+			m_specialAbilityText.setPosition(Vec2<float>(0, m_windowConfig.windowHeight - m_specialAbilityText.getCharacterSize()));
 		}
 
 		if (section == "Player")
@@ -74,6 +77,7 @@ void Game::init(const std::string& path)
 	m_tileColor1 = { 28, 28, 28 };
 	m_tileColor2 = { 0, 0, 0 };
 	m_backgroundTileSize = 20;
+	m_cooldownRemaining = m_cooldownFrames;
 }
 
 std::shared_ptr<Entity> Game::player()
@@ -109,6 +113,11 @@ void Game::run()
 			sLifespan();
 
 			m_currentFrame++;
+			
+			if (m_cooldownRemaining > 0)
+			{
+				m_cooldownRemaining--;
+			}
 		}
 	}
 }
@@ -252,11 +261,8 @@ void Game::spawnSmallQuills(std::shared_ptr<Entity> e)
 
 void Game::spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& target)
 {
-	// TODO: implement special weapon
-	// idea: railgun... could charge up and fire a "heat seeking bullet"
-
-	// current able to fire every 10 seconds
-	if (m_currentFrame - m_lastQuillFired >= 600)
+	// currently able to fire every 10 seconds
+	if (m_currentFrame - m_lastQuillFired >= m_cooldownFrames)
 	{
 		auto& transform = entity->get<CTransform>();
 		auto quill = m_entities.addEntity("quill");
@@ -272,9 +278,13 @@ void Game::spawnQuill(std::shared_ptr<Entity> entity, const Vec2<float>& target)
 		quill->add<CLifespan>(m_bulletConfig.L);
 		quill->add<CQuill>(60.f, 8.f, sf::Color(255, 255, 255));
 		m_lastQuillFired = m_currentFrame;
+		m_cooldownRemaining = m_cooldownFrames;
 	}
 }
 
+/*
+SYSTEMS
+*/
 void Game::sMovement()
 {
 	if (m_movement)
@@ -623,7 +633,7 @@ void Game::sGUI()
 
 		if (ImGui::BeginTabItem("Settings"))
 		{
-			ImGui::SliderInt("tile size", &m_backgroundTileSize, 4, 120);
+			ImGui::SliderInt("Tile Size", &m_backgroundTileSize, 4, 120);
 			ImGui::Text("Enemy Settings");
 			ImGui::Separator();
 			if (ImGui::Button("Spawn Enemy"))
@@ -704,8 +714,17 @@ void Game::sRender()
 		}
 	}
 
-	m_text.setString("Current Score: " + std::to_string(m_score));
-	m_window.draw(m_text);
+	m_scoreText.setString("Current Score: " + std::to_string(m_score));
+	if (m_cooldownRemaining > 0)
+	{
+		m_specialAbilityText.setString("Special Ability Cooldown: " + std::to_string(m_cooldownRemaining));
+	}
+	else
+	{
+		m_specialAbilityText.setString("Special Ability Cooldown: READY");
+	}
+	m_window.draw(m_scoreText);
+	m_window.draw(m_specialAbilityText);
 
 	// draw the ui last
 	ImGui::SFML::Render(m_window);
@@ -731,9 +750,6 @@ void Game::sUserInput()
 			// this event is triggered when a key is pressed
 			if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
 			{
-				// print the key that was pressed to the console
-				std::cout << "Key pressed = " << int(keyPressed->scancode) << '\n';
-
 				if (keyPressed->scancode == sf::Keyboard::Scancode::W)
 				{
 					player()->get<CInput>().up = true;
@@ -761,7 +777,7 @@ void Game::sUserInput()
 
 				if (keyPressed->scancode == sf::Keyboard::Scancode::G)
 				{
-					// toggle gui
+					// toggle debug gui
 					m_devMode = !m_devMode;
 				}
 
@@ -775,9 +791,6 @@ void Game::sUserInput()
 			// this event is triggered when a key is released
 			if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
 			{
-				// print the key that was released to the console
-				std::cout << "Key released = " << int(keyReleased->scancode) << '\n';
-
 				if (keyReleased->scancode == sf::Keyboard::Scancode::W)
 				{
 					player()->get<CInput>().up = false;
