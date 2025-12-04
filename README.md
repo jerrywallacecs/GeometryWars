@@ -42,11 +42,11 @@ practice object-oriented design, game loops, and GUI integration in C++.
 - Ability to adjust enemy spawn interval dynamically
 - Ability to manually spawn enemies
 - Designed for usability and clear presentation
-Note: The GUI may be toggled on/off using the G key
 
 ### Miscellaneous
 - 'P' key pauses the game
 - 'ESC' key exits the game
+- 'G' key toggles the GUI
 - Game state managed via an ECS pattern, with entity removal for dead objects
 
 ### Configuration
