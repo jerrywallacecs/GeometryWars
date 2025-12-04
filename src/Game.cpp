@@ -87,9 +87,6 @@ std::shared_ptr<Entity> Game::player()
 
 void Game::run()
 {
-	// TODO: add pause functionality
-	//		some systems should function while paused (rendering)
-	//		some shouldn't (movement / input)
 	while (true)
 	{
 		// update the entity manager
@@ -291,28 +288,18 @@ void Game::sMovement()
 	{
 		auto& playerTransform = player()->get<CTransform>();
 
-		// TODO: use formula for two directional movement, it is currently faster than it should be | note: could use if else and check for two directions
+		// TODO: use formula for two directional movement, it is currently faster than it should be
 		
-		// checking each direction - FIX DIAGONAL MOVEMENT
-		if (player()->get<CInput>().up && !player()->get<CInput>().right && !player()->get<CInput>().left)
-		{
-			playerTransform.pos.y -= playerTransform.velocity.y;
-		}
+		Vec2<float> direction = { 0, 0 };
+		if (player()->get<CInput>().up) direction.y -= 1.f;
+		if (player()->get<CInput>().down) direction.y += 1.f;
+		if (player()->get<CInput>().left) direction.x -= 1.f;
+		if (player()->get<CInput>().right) direction.x += 1.f;
 
-		if (player()->get<CInput>().down && !player()->get<CInput>().right && !player()->get<CInput>().left)
-		{
-			playerTransform.pos.y += playerTransform.velocity.y;
-		}
+		direction.normalize();
 
-		if (player()->get<CInput>().left && !player()->get<CInput>().down && !player()->get<CInput>().up)
-		{
-			playerTransform.pos.x -= playerTransform.velocity.x;
-		}
-
-		if (player()->get<CInput>().right && !player()->get<CInput>().down && !player()->get<CInput>().up)
-		{
-			playerTransform.pos.x += playerTransform.velocity.x;
-		}
+		// apply speed
+		playerTransform.pos += direction * playerTransform.velocity;
 
 		// enemy animation
 		for (auto& enemy : m_entities.getEntities("enemy"))
