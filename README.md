@@ -1,5 +1,7 @@
 # Geometry Wars
 
+https://github.com/user-attachments/assets/03eb01cc-d38f-485c-b5bc-f0bb6192cb3e
+
 ## Overview
 This is a 2D arcade-style shooter game implemented in C++ using the SFML library for graphics and input handling,
 and Dear ImGui for the user interface. This project is a clone inspired by the classic Geometry Wars series,
